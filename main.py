@@ -21,17 +21,17 @@ class SpotifyPlaylistDownloader:
         pytube_logger.setLevel(logging.ERROR)
 
     def run(self):
-        # Getting the directory to download the musics and the playlist URL
-        print('Select a directory to download the musics.')
+        # Getting the directory to download the songs, and the playlist URL
+        print('Select a directory to download the songs.')
         self.directory = filedialog.askdirectory()
         self.playlist_url = input('Playlist URL: ')
 
-        self.musics_list = self.get_musics_name(self.playlist_url)
+        self.song_list = self.get_songs_name(self.playlist_url)
 
-        print('Downloading musics...')
-        self.search_musics(self.musics_list)
+        print('Downloading songs...')
+        self.search_songs(self.song_list)
 
-    def get_musics_name(self, playlist_url):
+    def get_songs_name(self, playlist_url):
         # Creating the webdriver
         self.driver = webdriver.Chrome(options=self.options)
 
@@ -45,39 +45,39 @@ class SpotifyPlaylistDownloader:
         # Parsing the page's HTML
         soup = BeautifulSoup(self.driver.page_source, 'html.parser')
 
-        # Getting the music name and the artist name of each music in the playlist
-        musics_list = []
-        musics = soup.find('div', attrs={'data-testid': 'playlist-tracklist'}).find_all('div', attrs={'data-testid': 'tracklist-row'})
-        for music in musics:
-            infos = music.find('div', attrs={'aria-colindex': '2'})
-            music_name = infos.find('a', attrs={'data-testid': 'internal-track-link'}).find('div', attrs={'data-encore-id': 'text'}).text
+        # Getting the song name and the artist name of each song in the playlist
+        song_list = []
+        songs = soup.find('div', attrs={'data-testid': 'playlist-tracklist'}).find_all('div', attrs={'data-testid': 'tracklist-row'})
+        for song in songs:
+            infos = song.find('div', attrs={'aria-colindex': '2'})
+            song_name = infos.find('a', attrs={'data-testid': 'internal-track-link'}).find('div', attrs={'data-encore-id': 'text'}).text
             artist_name = infos.find_all('span', attrs={'data-encore-id': 'text'})[-1].text
-            musics_list.append(f'{artist_name} - {music_name}')
+            song_list.append(f'{artist_name} - {song_name}')
         
         self.driver.close()
         
-        return musics_list
+        return song_list
 
-    def search_musics(self, musics_list):
+    def search_songs(self, song_list):
         # Setting control variables
-        self.music_counter = 0
-        self.total_musics = len(musics_list)
+        self.song_counter = 0
+        self.total_songs = len(song_list)
 
-        # Searching each music, getting the first result and creating a Thread to download it
-        for music in musics_list:
-            search = Search(f'{music} Audio')
+        # Searching each song, getting the first result and creating a Thread to download it
+        for song in song_list:
+            search = Search(f'{song} Audio')
             result = search.results[0]
-            threading.Thread(target=self.download_musics, args=(music, result)).start()
+            threading.Thread(target=self.download_songs, args=(song, result)).start()
 
-    def download_musics(self, music, result):
-        # Trying to download the music
+    def download_songs(self, song, result):
+        # Trying to download the song
         try:
-            result.streams.get_audio_only().download(output_path=self.directory, filename=f'{music}.mp3')
+            result.streams.get_audio_only().download(output_path=self.directory, filename=f'{song}.mp3')
         except PytubeError:
-            print(f'Error downloading music: {music}')
+            print(f'Error downloading song: {song}')
         else:
-            self.music_counter += 1
-            print(f'Downloaded music {self.music_counter}/{self.total_musics}: {music}')
+            self.song_counter += 1
+            print(f'{self.song_counter}/{self.total_songs} - Successfully downloaded song: {song}')
 
 # Running the application
 if __name__ == '__main__':  
