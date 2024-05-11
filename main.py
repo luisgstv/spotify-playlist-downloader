@@ -1,5 +1,6 @@
 from selenium import webdriver
 from selenium.webdriver.common.by import By
+from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from bs4 import BeautifulSoup
@@ -8,6 +9,7 @@ from pytube.exceptions import PytubeError
 from tkinter import filedialog
 import threading
 import logging
+import time
 
 class SpotifyPlaylistDownloader:
     def __init__(self):
@@ -39,20 +41,35 @@ class SpotifyPlaylistDownloader:
         self.driver.get(playlist_url)
 
         WebDriverWait(self.driver, 5).until(
-            EC.presence_of_all_elements_located((By.CSS_SELECTOR, '[data-testid="tracklist-row"]'))
+            EC.presence_of_element_located((By.CSS_SELECTOR, '.contentSpacing div div span.encore-text-body-small'))
         )
-        
-        # Parsing the page's HTML
-        soup = BeautifulSoup(self.driver.page_source, 'html.parser')
 
-        # Getting the song name and the artist name of each song in the playlist
-        song_list = []
-        songs = soup.find('div', attrs={'data-testid': 'playlist-tracklist'}).find_all('div', attrs={'data-testid': 'tracklist-row'})
-        for song in songs:
-            infos = song.find('div', attrs={'aria-colindex': '2'})
-            song_name = infos.find('a', attrs={'data-testid': 'internal-track-link'}).find('div', attrs={'data-encore-id': 'text'}).text
-            artist_name = infos.find_all('span', attrs={'data-encore-id': 'text'})[-1].text
-            song_list.append(f'{artist_name} - {song_name}')
+        # Getting a scrollable element to scroll the page
+        self.scrollable_element = self.driver.find_element(By.TAG_NAME, 'main')
+
+        self.scrollable_element.send_keys(Keys.PAGE_DOWN)
+        time.sleep(1)
+        self.scrollable_element.send_keys(Keys.PAGE_UP)
+
+        # Getting the number of total songs
+        self.total_songs = int(self.driver.find_element(By.XPATH, '//div[contains(@class, "contentSpacing")]//span[contains(text(), "song")]').text.split(' ')[0])
+        print(self.total_songs)
+
+        song_dict = {}
+        while len(song_dict) < self.total_songs:
+            time.sleep(1.5)
+            soup = BeautifulSoup(self.driver.page_source, 'html.parser')
+            songs = soup.find('div', attrs={'data-testid': 'playlist-tracklist'}).find_all('div', attrs={'data-testid': 'tracklist-row'})
+            for song in songs:
+                infos = song.find('div', attrs={'aria-colindex': '2'})
+                index = song.find('div', attrs={'aria-colindex': '1'}).find('span').text
+                song_name = infos.find('a', attrs={'data-testid': 'internal-track-link'}).find('div', attrs={'data-encore-id': 'text'}).text
+                artist_name = infos.find_all('span', attrs={'data-encore-id': 'text'})[-1].text
+                song_dict[index] = f'{artist_name} - {song_name}'
+            print(len(song_dict))
+            self.scrollable_element.send_keys(Keys.PAGE_DOWN * 2)
+        
+        song_list = list(song_dict.values())
         
         self.driver.close()
         
@@ -70,6 +87,10 @@ class SpotifyPlaylistDownloader:
             threading.Thread(target=self.download_songs, args=(song, result)).start()
 
     def download_songs(self, song, result):
+        invalid_chars = ['/', '\\', ':', '*', '?', '"', '>', '<', '|']
+        for char in invalid_chars:
+            if char in song:
+                song = song.replace(char, ' ')
         # Trying to download the song
         try:
             result.streams.get_audio_only().download(output_path=self.directory, filename=f'{song}.mp3')
