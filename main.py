@@ -47,14 +47,15 @@ class SpotifyPlaylistDownloader:
         # Getting a scrollable element to scroll the page
         self.scrollable_element = self.driver.find_element(By.TAG_NAME, 'main')
 
+        # Ensuring that the total number of songs is correct
         self.scrollable_element.send_keys(Keys.PAGE_DOWN)
         time.sleep(1)
         self.scrollable_element.send_keys(Keys.PAGE_UP)
 
-        # Getting the number of total songs
+        # Getting the total number of songs
         self.total_songs = int(self.driver.find_element(By.XPATH, '//div[contains(@class, "contentSpacing")]//span[contains(text(), "song")]').text.split(' ')[0])
-        print(self.total_songs)
 
+        # Getting the index, name, and artist name of each song in the playlist and saving them in a dictionary to ensure that all songs are found and no duplicates exist
         song_dict = {}
         while len(song_dict) < self.total_songs:
             time.sleep(1.5)
@@ -66,9 +67,9 @@ class SpotifyPlaylistDownloader:
                 song_name = infos.find('a', attrs={'data-testid': 'internal-track-link'}).find('div', attrs={'data-encore-id': 'text'}).text
                 artist_name = infos.find_all('span', attrs={'data-encore-id': 'text'})[-1].text
                 song_dict[index] = f'{artist_name} - {song_name}'
-            print(len(song_dict))
             self.scrollable_element.send_keys(Keys.PAGE_DOWN * 2)
         
+        # Creating a list with all the songs
         song_list = list(song_dict.values())
         
         self.driver.close()
@@ -87,10 +88,12 @@ class SpotifyPlaylistDownloader:
             threading.Thread(target=self.download_songs, args=(song, result)).start()
 
     def download_songs(self, song, result):
+        # Verifying if there are any invalid characters in the song name before saving the file
         invalid_chars = ['/', '\\', ':', '*', '?', '"', '>', '<', '|']
         for char in invalid_chars:
             if char in song:
                 song = song.replace(char, ' ')
+
         # Trying to download the song
         try:
             result.streams.get_audio_only().download(output_path=self.directory, filename=f'{song}.mp3')
